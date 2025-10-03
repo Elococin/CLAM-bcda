@@ -98,7 +98,11 @@ parser.add_argument('--model_type', type=str, choices=['clam_sb', 'clam_mb', 'mi
 parser.add_argument('--exp_code', type=str, help='experiment code for saving results')
 parser.add_argument('--weighted_sample', action='store_true', default=False, help='enable weighted sampling')
 parser.add_argument('--model_size', type=str, choices=['small', 'big'], default='small', help='size of model, does not affect mil')
-parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal',  'task_2_tumor_subtyping'])
+parser.add_argument('--task', type=str, choices=['task_1_tumor_vs_normal',  'task_2_tumor_subtyping','ER_status'])
+parser.add_argument('--csv_path', type=str, default=None, 
+                    help='Path to a single label CSV (e.g., tcga_ER.csv)')
+parser.add_argument('--label_dir', type=str, default=None, 
+                    help='Path to directory containing multiple *_ER.csv to merge')
 ### CLAM specific options
 parser.add_argument('--no_inst_cluster', action='store_true', default=False,
                      help='disable instance-level clustering')
@@ -176,7 +180,20 @@ elif args.task == 'task_2_tumor_subtyping':
 
     if args.model_type in ['clam_sb', 'clam_mb']:
         assert args.subtyping 
-        
+
+elif args.task == 'ER_status':
+    args.n_classes = 2
+    dataset = Generic_WSI_Classification_Dataset(
+        csv_path=args.csv_path,          # optional: can point to a single CSV
+        label_dir=args.label_dir,        # optional: can point to a directory of *_ER.csv
+        shuffle=False,
+        seed=args.seed,
+        print_info=True,
+        label_dict={'0': 0, '1': 1},     # consistent with ER/HER2 encoding
+        patient_strat=False,
+        ignore=[]
+    )
+    
 else:
     raise NotImplementedError
     

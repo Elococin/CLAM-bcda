@@ -27,56 +27,68 @@ def save_splits(split_datasets, column_keys, filename, boolean_style=False):
 
 	df.to_csv(filename)
 	print()
-
+	
 class Generic_WSI_Classification_Dataset(Dataset):
-	def __init__(self,
-		csv_path = 'dataset_csv/ccrcc_clean.csv',
-		shuffle = False, 
-		seed = 7, 
-		print_info = True,
-		label_dict = {},
-		filter_dict = {},
-		ignore=[],
-		patient_strat=False,
-		label_col = None,
-		patient_voting = 'max',
-		):
-		"""
-		Args:
-			csv_file (string): Path to the csv file with annotations.
-			shuffle (boolean): Whether to shuffle
-			seed (int): random seed for shuffling the data
-			print_info (boolean): Whether to print a summary of the dataset
-			label_dict (dict): Dictionary with key, value pairs for converting str labels to int
-			ignore (list): List containing class labels to ignore
-		"""
-		self.label_dict = label_dict
-		self.num_classes = len(set(self.label_dict.values()))
-		self.seed = seed
-		self.print_info = print_info
-		self.patient_strat = patient_strat
-		self.train_ids, self.val_ids, self.test_ids  = (None, None, None)
-		self.data_dir = None
-		if not label_col:
-			label_col = 'label'
-		self.label_col = label_col
+    def __init__(self,
+        csv_path=None,
+        label_dir=None,
+        shuffle=False, 
+        seed=7, 
+        print_info=True,
+        label_dict={},
+        filter_dict={},
+        ignore=[],
+        patient_strat=False,
+        label_col=None,
+        patient_voting='max',
+        ):
+        """
+        Args:
+            csv_file (string): Path to a single csv file with annotations.
+            label_dir (string): Path to a directory containing multiple *_ER.csv files (merged automatically).
+            shuffle (boolean): Whether to shuffle the rows
+            seed (int): random seed for shuffling the data
+            print_info (boolean): Whether to print a summary of the dataset
+            label_dict (dict): Dictionary mapping raw labels to integers
+            ignore (list): List of class labels to ignore
+        """
+        self.label_dict = label_dict
+        self.num_classes = len(set(self.label_dict.values()))
+        self.seed = seed
+        self.print_info = print_info
+        self.patient_strat = patient_strat
+        self.train_ids, self.val_ids, self.test_ids = (None, None, None)
+        self.data_dir = None
+        if not label_col:
+            label_col = 'label'
+        self.label_col = label_col
 
-		slide_data = pd.read_csv(csv_path)
-		slide_data = self.filter_df(slide_data, filter_dict)
-		slide_data = self.df_prep(slide_data, self.label_dict, ignore, self.label_col)
+        # Load data from either a directory of CSVs or a single CSV
+        if label_dir is not None:
+            all_csvs = [os.path.join(label_dir, f) for f in os.listdir(label_dir) if f.endswith("_ER.csv")]
+            assert len(all_csvs) > 0, f"No *_ER.csv files found in {label_dir}"
+            dfs = [pd.read_csv(f) for f in all_csvs]
+            slide_data = pd.concat(dfs, ignore_index=True)
+        else:
+            assert csv_path is not None, "Must provide either csv_path or label_dir"
+            slide_data = pd.read_csv(csv_path)
 
-		###shuffle data
-		if shuffle:
-			np.random.seed(seed)
-			np.random.shuffle(slide_data)
+        # Apply filtering and label remapping
+        slide_data = self.filter_df(slide_data, filter_dict)
+        slide_data = self.df_prep(slide_data, self.label_dict, ignore, self.label_col)
 
-		self.slide_data = slide_data
+        # Shuffle if requested
+        if shuffle:
+            slide_data = slide_data.sample(frac=1, random_state=seed).reset_index(drop=True)
 
-		self.patient_data_prep(patient_voting)
-		self.cls_ids_prep()
+        self.slide_data = slide_data
 
-		if print_info:
-			self.summarize()
+        # Prepare patient and class-level indices
+        self.patient_data_prep(patient_voting)
+        self.cls_ids_prep()
+
+        if print_info:
+            self.summarize()
 
 	def cls_ids_prep(self):
 		# store ids corresponding each class at the patient or case level

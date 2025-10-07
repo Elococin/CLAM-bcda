@@ -14,7 +14,7 @@ args:
 """
 class Attn_Net(nn.Module):
 
-    def __init__(self, L = 1024, D = 256, dropout = False, n_classes = 1):
+    def __init__(self, L = 768, D = 256, dropout = False, n_classes = 1):
         super(Attn_Net, self).__init__()
         self.module = [
             nn.Linear(L, D),
@@ -39,7 +39,7 @@ args:
     n_classes: number of classes 
 """
 class Attn_Net_Gated(nn.Module):
-    def __init__(self, L = 1024, D = 256, dropout = False, n_classes = 1):
+    def __init__(self, L = 768, D = 256, dropout = False, n_classes = 1):
         super(Attn_Net_Gated, self).__init__()
         self.attention_a = [
             nn.Linear(L, D),
@@ -76,7 +76,7 @@ args:
 """
 class CLAM_SB(nn.Module):
     def __init__(self, gate = True, size_arg = "small", dropout = 0., k_sample=8, n_classes=2,
-        instance_loss_fn=nn.CrossEntropyLoss(), subtyping=False, embed_dim=1024):
+        instance_loss_fn=nn.CrossEntropyLoss(), subtyping=False, embed_dim=768):
         super().__init__()
         self.size_dict = {"small": [embed_dim, 512, 256], "big": [embed_dim, 512, 384]}
         size = self.size_dict[size_arg]
@@ -182,7 +182,7 @@ class CLAM_SB(nn.Module):
 
 class CLAM_MB(CLAM_SB):
     def __init__(self, gate = True, size_arg = "small", dropout = 0., k_sample=8, n_classes=2,
-        instance_loss_fn=nn.CrossEntropyLoss(), subtyping=False, embed_dim=1024):
+        instance_loss_fn=nn.CrossEntropyLoss(), subtyping=False, embed_dim=768):
         nn.Module.__init__(self)
         self.size_dict = {"small": [embed_dim, 512, 256], "big": [embed_dim, 512, 384]}
         size = self.size_dict[size_arg]

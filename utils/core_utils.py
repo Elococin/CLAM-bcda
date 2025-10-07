@@ -63,7 +63,7 @@ class EarlyStopping:
         self.counter = 0
         self.best_score = None
         self.early_stop = False
-        self.val_loss_min = np.Inf
+        self.val_loss_min = np.inf
 
     def __call__(self, epoch, val_loss, model, ckpt_name = 'checkpoint.pt'):
 
@@ -124,9 +124,13 @@ def train(datasets, cur, args):
     print('Done!')
     
     print('\nInit Model...', end=' ')
-    model_dict = {"dropout": args.drop_out, 
-                  'n_classes': args.n_classes, 
-                  "embed_dim": args.embed_dim}
+    model_dict = {
+        "dropout": args.drop_out,
+        "n_classes": args.n_classes,
+        "gate": getattr(args, "gate", True),     
+        "size_arg": getattr(args, "size_arg", "small"),
+        "embed_dim": 768,                    
+        }
     
     if args.model_size is not None and args.model_type != 'mil':
         model_dict.update({"size_arg": args.model_size})

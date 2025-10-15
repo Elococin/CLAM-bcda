@@ -1,0 +1,30 @@
+# Optimized CLAM config for TCGA BRCA held-out testing
+task: ER_status
+model_type: clam_sb
+model_size: big           # Use 'big' model for more GPU compute (vs. previous 'small')
+embed_dim: 768           # MUST MATCH CONCH BACKBONE OUTPUT - DO NOT CHANGE
+datasets: [haiti, bcnb, postnat_brca]  # EXCLUDE TCGA BRCA for held-out testing
+
+feature_dirs:
+  haiti: /autofs/space/crater_001/projects/bc_domain_adaptation_nicole/features/haiti
+  bcnb: /autofs/space/crater_001/projects/bc_domain_adaptation_nicole/features/bcnb
+  postnat_brca: /autofs/space/crater_001/projects/bc_domain_adaptation_nicole/features/postnat_brca
+
+label_csvs:
+  haiti: /autofs/space/crater_001/projects/bc_domain_adaptation_nicole/labels/er/haiti_ER.csv
+  bcnb: /autofs/space/crater_001/projects/bc_domain_adaptation_nicole/labels/er/bcnb_ER.csv
+  postnat_brca: /autofs/space/crater_001/projects/bc_domain_adaptation_nicole/labels/er/postnat_ER.csv
+
+train_params:
+  batch_size: 1
+  num_epochs: 200
+  early_stopping: true
+  lr: 0.0001
+  reg: 0.00001
+  dropout: 0.25
+  B: 64              # Increased to 64 for maximum GPU utilization (vs. previous 8)
+  bag_weight: 0.7    # Added bag loss weighting
+  num_workers: 3     # Matches 4 CPU allocation - CRITICAL FOR PERFORMANCE
+
+seed: 42
+use_gpu: true

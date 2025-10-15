@@ -66,6 +66,15 @@ parser.add_argument('--inst_loss', type=str, choices=['svm', 'ce', None], defaul
 parser.add_argument('--subtyping', action='store_true', default=False)
 parser.add_argument('--bag_weight', type=float, default=0.7)
 parser.add_argument('--B', type=int, default=8)
+
+# --- Profiling / debug args ---
+parser.add_argument('--enable_profiler', action='store_true', default=False,
+                    help='Enable torch.profiler to record CPU/GPU timelines')
+parser.add_argument('--profiler_logdir', type=str, default='./profiler_logs',
+                    help='Directory to store profiler traces')
+parser.add_argument('--max_batches', type=int, default=None,
+                    help='Limit number of batches per fold for quick tests')
+
 args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -118,6 +127,14 @@ elif args.task == 'ER_status':
     held_out = cfg.get("held_out", None)
     args.split_dir = cfg.get("split_dir", args.split_dir)
 
+    # --- Merge CLI overrides safely ---
+    cfg["results_dir"] = getattr(args, "results_dir", cfg.get("results_dir", "./results"))
+    cfg["split_dir"]   = getattr(args, "split_dir",   cfg.get("split_dir", "./splits"))
+    cfg["task"]        = getattr(args, "task",        cfg.get("task", "ER_status"))
+    cfg["drop_out"]    = getattr(args, "drop_out",    cfg.get("drop_out", 0.25))
+    cfg["early_stopping"] = getattr(args, "early_stopping", cfg.get("early_stopping", False))
+
+    os.makedirs(cfg["results_dir"], exist_ok=True)
 
     merged_csvs = []
     for dname in datasets:
@@ -194,9 +211,27 @@ def main(args):
         train_dataset, val_dataset, test_dataset = dataset.return_splits(
             from_id=False, csv_path='{}/splits_{}.csv'.format(args.split_dir, i)
         )
-
         datasets = (train_dataset, val_dataset, test_dataset)
-        results, test_auc, val_auc, test_acc, val_acc = train(datasets, i, args)
+
+        # --- Begin optional profiling block ---
+        if args.enable_profiler:
+            from torch.profiler import profile, record_function, ProfilerActivity
+            print(f"[PROFILER] Enabled. Traces will be saved to: {args.profiler_logdir}")
+            os.makedirs(args.profiler_logdir, exist_ok=True)
+
+            with profile(
+                activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                schedule=torch.profiler.schedule(wait=0, warmup=1, active=3, repeat=1),
+                on_trace_ready=torch.profiler.tensorboard_trace_handler(args.profiler_logdir),
+                record_shapes=True,
+                with_stack=True
+            ) as prof:
+                results, test_auc, val_auc, test_acc, val_acc = train(datasets, i, args, prof=prof)
+                prof.step()
+        else:
+            results, test_auc, val_auc, test_acc, val_acc = train(datasets, i, args)
+        # --- End optional profiling block ---
+
         all_test_auc.append(test_auc)
         all_val_auc.append(val_auc)
         all_test_acc.append(test_acc)

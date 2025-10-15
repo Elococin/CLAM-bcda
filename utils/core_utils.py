@@ -89,7 +89,7 @@ class EarlyStopping:
         torch.save(model.state_dict(), ckpt_name)
         self.val_loss_min = val_loss
 
-def train(datasets, cur, args):
+def train(datasets, cur, args, prof=None):
     """   
         train for a single fold
     """
@@ -172,9 +172,10 @@ def train(datasets, cur, args):
     print('Done!')
     
     print('\nInit Loaders...', end=' ')
-    train_loader = get_split_loader(train_split, training=True, testing = args.testing, weighted = args.weighted_sample)
-    val_loader = get_split_loader(val_split,  testing = args.testing)
-    test_loader = get_split_loader(test_split, testing = args.testing)
+    num_workers = getattr(args, 'num_workers', 4)  # Use config num_workers or default to 4
+    train_loader = get_split_loader(train_split, training=True, testing = args.testing, weighted = args.weighted_sample, num_workers=num_workers)
+    val_loader = get_split_loader(val_split,  testing = args.testing, num_workers=num_workers)
+    test_loader = get_split_loader(test_split, testing = args.testing, num_workers=num_workers)
     print('Done!')
 
     print('\nSetup EarlyStopping...', end=' ')
@@ -195,7 +196,12 @@ def train(datasets, cur, args):
             train_loop(epoch, model, train_loader, optimizer, args.n_classes, writer, loss_fn)
             stop = validate(cur, epoch, model, val_loader, args.n_classes, 
                 early_stopping, writer, loss_fn, args.results_dir)
-        
+
+        # --- Early stop for profiling runs ---
+        if hasattr(args, "max_batches") and args.max_batches is not None:
+            print(f"[DEBUG] Profiling run complete after {args.max_batches} batches in epoch {epoch}. Exiting early.")
+            break
+
         if stop: 
             break
 
@@ -226,7 +232,7 @@ def train(datasets, cur, args):
     return results_dict, test_auc, val_auc, 1-test_error, 1-val_error 
 
 
-def train_loop_clam(epoch, model, loader, optimizer, n_classes, bag_weight, writer = None, loss_fn = None):
+def train_loop_clam(epoch, model, loader, optimizer, n_classes, bag_weight, writer = None, loss_fn = None,args=None):
     model.train()
     acc_logger = Accuracy_Logger(n_classes=n_classes)
     inst_logger = Accuracy_Logger(n_classes=n_classes)
@@ -238,6 +244,11 @@ def train_loop_clam(epoch, model, loader, optimizer, n_classes, bag_weight, writ
 
     print('\n')
     for batch_idx, (data, label) in enumerate(loader):
+        # --- Early stop for profiling ---
+        if hasattr(args, "max_batches") and args.max_batches is not None:
+            if batch_idx >= args.max_batches:
+                print(f"[DEBUG] Reached max_batches={args.max_batches}, stopping early for profiling.")
+                break
         data, label = data.to(device), label.to(device)
         logits, Y_prob, Y_hat, _, instance_dict = model(data, label=label, instance_eval=True)
 

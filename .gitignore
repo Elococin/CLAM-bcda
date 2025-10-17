@@ -1,3 +1,10 @@
 **/.DS_Store
 __pycache__/
-notebooks
+notebooks# Large experiment outputs
+results_lodo_*/
+external_validation_results/
+*.pt
+*.h5
+tensorboard/
+# avoid accidentally committing heavy logs
+*.log

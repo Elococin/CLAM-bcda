@@ -79,6 +79,8 @@ class Generic_WSI_Classification_Dataset(Dataset):
         self.train_ids = self.val_ids = self.test_ids = None
         self.data_dir = None
         self.label_col = label_col or 'label'
+        # remember csv_path for downstream inspection
+        self.csv_path = csv_path
 
         if label_dir is not None:
             all_csvs = [os.path.join(label_dir, f) for f in os.listdir(label_dir) if f.endswith('_ER.csv')]
